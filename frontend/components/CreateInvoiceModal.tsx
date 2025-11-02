@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { createInvoice } from '../lib/api';
 
-export default function CreateInvoiceModal({ open, onClose, onCreated }: { open: boolean; onClose: ()=>void; onCreated?: ()=>void }){
+export default function CreateInvoiceModal({ open, onClose, onCreated, onSave }: { open?: boolean; onClose: ()=>void; onCreated?: ()=>void; onSave?: (invoice: any) => void }){
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState<number | ''>(0);
   const [clientId, setClientId] = useState('');
@@ -15,9 +15,13 @@ export default function CreateInvoiceModal({ open, onClose, onCreated }: { open:
     e.preventDefault();
     setLoading(true);
     try{
-      await createInvoice({ title, amount: Number(amount), clientId: clientId || undefined, freelancerId: freelancerId || undefined });
+      const result = await createInvoice({ title, amount: Number(amount), clientId: clientId || undefined, freelancerId: freelancerId || undefined });
       setTitle(''); setAmount(''); setClientId(''); setFreelancerId('');
-      if (onCreated) onCreated();
+      if (onSave) {
+        onSave(result);
+      } else if (onCreated) {
+        onCreated();
+      }
       onClose();
     }catch(err){
       console.error(err);

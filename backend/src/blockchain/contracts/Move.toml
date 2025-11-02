@@ -1,0 +1,10 @@
+[package]
+name = "Escrow"
+version = "1.0.0"
+authors = ["ChainBill"]
+
+[addresses]
+Escrow = "0x04fa7024f8877de01aa137c92a5ea662e7544d44620fd53bd2b051d150d8c0d0"
+
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "mainnet" }

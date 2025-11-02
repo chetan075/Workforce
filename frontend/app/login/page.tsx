@@ -3,7 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../components/AuthProvider';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, User, CheckCircle } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, User, CheckCircle, Wallet } from 'lucide-react';
+import { requestWalletChallenge, verifyWalletSignature } from '../../lib/api';
+import AptosWallet from '../../lib/aptosWallet';
 
 export default function LoginPage() {
   const { login, user, loading } = useAuth();
@@ -12,6 +14,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [isWalletLogin, setIsWalletLogin] = useState(false);
   const router = useRouter();
 
   // Redirect if already logged in
@@ -37,6 +40,52 @@ export default function LoginPage() {
       setError('An error occurred during login. Please try again.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const connectWallet = async () => {
+    setError('');
+    setIsWalletLogin(true);
+    
+    try {
+      const { address, publicKey, provider } = await AptosWallet.connectAptosWallet();
+      
+      // Check if this is a development wallet
+      if ((provider as any).isDev) {
+        console.log('🔧 Using development wallet simulation');
+      }
+      
+      // Request challenge from backend
+      const challengeJson = await requestWalletChallenge(address);
+      const challenge = challengeJson.challenge;
+      
+      // Sign the challenge with the wallet
+      const sig = await AptosWallet.signMessageWithWallet(provider, challenge);
+      
+      // Verify signature with backend (this creates user if needed and sets cookie)
+      const verifyJson = await verifyWalletSignature(address, sig.signature, publicKey ?? undefined);
+      
+      // Store token if returned (backend also sets HttpOnly cookie)
+      if (verifyJson?.access_token) {
+        try { 
+          localStorage.setItem('access_token', verifyJson.access_token); 
+        } catch (_) {}
+      }
+      
+      console.log('Wallet authentication successful:', verifyJson);
+      
+      // Refresh auth state by checking /auth/me
+      window.location.href = '/dashboard';
+    } catch (error: any) {
+      console.error('Wallet login error:', error);
+      
+      if (error.message?.includes('No Aptos wallet provider found')) {
+        setError('No Aptos wallet found. Please install Petra Wallet or Martian Wallet from your browser\'s extension store, then refresh this page.');
+      } else {
+        setError(`Wallet connection failed: ${error.message}`);
+      }
+    } finally {
+      setIsWalletLogin(false);
     }
   };
 
@@ -165,10 +214,63 @@ export default function LoginPage() {
             </button>
           </form>
 
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-600"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-gray-800/50 text-gray-400">Or continue with</span>
+            </div>
+          </div>
+
+          {/* Wallet Login */}
+          <button
+            onClick={connectWallet}
+            disabled={isWalletLogin}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
+          >
+            {isWalletLogin ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Connecting wallet...
+              </>
+            ) : (
+              <>
+                <Wallet className="h-4 w-4" />
+                Connect Aptos Wallet
+              </>
+            )}
+          </button>
+
+          {/* Wallet Installation Guide */}
+          <div className="mt-4 p-3 bg-gray-700/30 rounded-lg border border-gray-600/50">
+            <p className="text-xs text-gray-400 mb-2">Don&apos;t have an Aptos wallet?</p>
+            <div className="flex flex-wrap gap-2">
+              <a 
+                href="https://petra.app/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-blue-400 hover:text-blue-300 underline"
+              >
+                Install Petra Wallet
+              </a>
+              <span className="text-gray-500">•</span>
+              <a 
+                href="https://martianwallet.xyz/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-blue-400 hover:text-blue-300 underline"
+              >
+                Install Martian Wallet
+              </a>
+            </div>
+          </div>
+
           {/* Register Link */}
           <div className="mt-6 text-center">
             <p className="text-gray-400">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link href="/register" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
                 Create one now
               </Link>

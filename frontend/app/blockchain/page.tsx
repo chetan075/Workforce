@@ -23,9 +23,13 @@ import {
   fetchCryptoWalletBalance, 
   fetchTransactionHistory, 
   fetchNFTPortfolio,
-  mintInvoiceNFT,
-  mintReputationSBT 
+  mintInvoiceNFTSimple,
+  mintReputationSBT,
+  requestWalletChallenge,
+  verifyWalletSignature,
+  fetchInvoices,
 } from '@/lib/api';
+import AptosWallet from '@/lib/aptosWallet';
 
 interface WalletBalance {
   address: string;
@@ -73,6 +77,7 @@ export default function BlockchainPage() {
   const [walletBalance, setWalletBalance] = useState<WalletBalance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [nfts, setNfts] = useState<NFT[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
 
   const tabs = [
     { id: 'wallet', name: 'Wallet', icon: Wallet },
@@ -100,16 +105,40 @@ export default function BlockchainPage() {
 
   const connectWallet = async () => {
     try {
-      // Mock wallet connection - in real implementation, use Web3 libraries
-      const mockAddress = '0x1234567890abcdef1234567890abcdef12345678';
-      setWalletAddress(mockAddress);
-      setWalletConnected(true);
-      localStorage.setItem('walletAddress', mockAddress);
+      const { address, publicKey, provider } = await AptosWallet.connectAptosWallet();
       
-      await loadWalletData(mockAddress);
+      // Request challenge from backend, sign it and verify to obtain token
+      try {
+        // Request challenge from backend
+        const challengeJson = await requestWalletChallenge(address);
+        const challenge = challengeJson.challenge;
+        
+        // Sign the challenge with the wallet
+        const sig = await AptosWallet.signMessageWithWallet(provider, challenge);
+        
+        // Verify signature with backend (this creates user if needed and sets cookie)
+        const verifyJson = await verifyWalletSignature(address, sig.signature, publicKey ?? undefined);
+        
+        // Store token if returned (backend also sets HttpOnly cookie)
+        if (verifyJson?.access_token) {
+          try { 
+            localStorage.setItem('access_token', verifyJson.access_token); 
+          } catch (_) {}
+        }
+        
+        console.log('Wallet authentication successful:', verifyJson);
+      } catch (err) {
+        console.warn('Wallet auth flow failed (proceeding with address only):', err);
+        // Still allow wallet connection for read-only operations
+      }
+
+      setWalletAddress(address);
+      setWalletConnected(true);
+      localStorage.setItem('walletAddress', address);
+      await loadWalletData(address);
     } catch (error) {
       console.error('Error connecting wallet:', error);
-      alert('Failed to connect wallet');
+      alert('Failed to connect wallet. Please make sure you have an Aptos wallet installed (Petra, Martian, etc.)');
     }
   };
 
@@ -458,7 +487,19 @@ export default function BlockchainPage() {
                       
                       <div className="space-y-2">
                         <button 
-                          onClick={() => mintInvoiceNFT('sample-invoice-id')}
+                          onClick={async () => {
+                            try {
+                              // First try to fetch invoices to get a real invoice ID
+                              const invoiceList = await fetchInvoices();
+                              const paidInvoice = invoiceList.find((inv: any) => inv.status === 'PAID');
+                              const invoiceId = paidInvoice?.id || 'demo-invoice-id';
+                              await mintInvoiceNFTSimple(invoiceId);
+                              alert('NFT minting initiated successfully!');
+                            } catch (error) {
+                              console.error('Mint error:', error);
+                              alert(`Error minting NFT: ${error}`);
+                            }
+                          }}
                           className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
                         >
                           Mint Invoice NFT

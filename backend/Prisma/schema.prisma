@@ -8,11 +8,12 @@ datasource db {
 }
 
 model User {
-  id         String    @id @default(uuid())
-  email      String    @unique
-  name       String?
-  password   String
-  role       Role      @default(FREELANCER)
+  id           String    @id @default(uuid())
+  email        String    @unique
+  name         String?
+  password     String?   // Optional for wallet-based users
+  walletAddress String?  @unique  // Aptos wallet address for Web3 auth
+  role         Role      @default(FREELANCER)
   
   // Profile fields
   bio            String?
@@ -222,6 +223,7 @@ model StoredFile {
   invoiceId       String?
   filename        String
   ipfsHash        String
+  fileSize        Int?     // File size in bytes
   metadataHash    String   @unique
   encryptedBase64 String?  
   createdAt       DateTime @default(now())

@@ -16,6 +16,21 @@ export class PaymentsService {
     });
   }
 
+  // Helper to serialize BigInt fields for JSON responses
+  private serializeBigInt(obj: any): any {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj === 'bigint') return obj.toString();
+    if (Array.isArray(obj)) return obj.map(item => this.serializeBigInt(item));
+    if (typeof obj === 'object') {
+      const serialized: any = {};
+      for (const key in obj) {
+        serialized[key] = this.serializeBigInt(obj[key]);
+      }
+      return serialized;
+    }
+    return obj;
+  }
+
   async createPaymentIntent(invoiceId: string) {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
@@ -46,10 +61,11 @@ export class PaymentsService {
     });
     if (!invoice) return null;
     // mark invoice as PAID (escrow held)
-    return this.prisma.invoice.update({
+    const updatedInvoice = await this.prisma.invoice.update({
       where: { id: invoice.id },
       data: { status: 'PAID' },
     });
+    return this.serializeBigInt(updatedInvoice);
   }
 
   // test helper: mark invoice PAID without Stripe (simulates successful payment)
@@ -61,10 +77,10 @@ export class PaymentsService {
     if (invoice.status !== 'DRAFT' && invoice.status !== 'SENT') {
       throw new BadRequestException('Invoice not payable in current state');
     }
-    return this.prisma.invoice.update({
+    return this.serializeBigInt(await this.prisma.invoice.update({
       where: { id: invoiceId },
       data: { status: 'PAID' },
-    });
+    }));
   }
 
   async releaseEscrow(invoiceId: string) {
@@ -75,9 +91,9 @@ export class PaymentsService {
     if (invoice.status !== 'PAID')
       throw new BadRequestException('Invoice not in PAID state');
 
-    return this.prisma.invoice.update({
+    return this.serializeBigInt(await this.prisma.invoice.update({
       where: { id: invoiceId },
       data: { status: 'RELEASED', releasedAt: new Date() },
-    });
+    }));
   }
 }

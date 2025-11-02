@@ -27,7 +27,7 @@ export class AuthService {
 
   async validateUser(email: string, pass: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) return null;
+    if (!user || !user.password) return null; // wallet users have no password
     const ok = await bcrypt.compare(pass, user.password);
     if (!ok) return null;
     return user;

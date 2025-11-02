@@ -448,11 +448,11 @@ export class ProjectsService {
     query: string,
     userId?: string,
     filters?: {
-      status?: ProjectStatus;
+  status?: ProjectStatus;
       minBudget?: number;
       maxBudget?: number;
       skills?: string[];
-      difficulty?: DifficultyLevel;
+  difficulty?: DifficultyLevel;
     }
   ) {
     const where: any = {

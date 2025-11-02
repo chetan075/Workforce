@@ -11,10 +11,14 @@ import {
   Request,
   HttpStatus,
   HttpCode,
-  BadRequestException
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt.guard';
-import { ProjectsService, CreateProjectDto, UpdateProjectDto } from './projects.service';
+import {
+  ProjectsService,
+  CreateProjectDto,
+  UpdateProjectDto,
+} from './projects.service';
 import { ProjectStatus, DifficultyLevel } from '@prisma/client';
 
 @Controller('projects')
@@ -25,16 +29,22 @@ export class ProjectsController {
   // Create new project
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async createProject(@Body() createProjectDto: CreateProjectDto, @Request() req: any) {
+  async createProject(
+    @Body() createProjectDto: CreateProjectDto,
+    @Request() req: any,
+  ) {
     // Basic validation
     if (!createProjectDto.title || createProjectDto.title.trim().length === 0) {
       throw new BadRequestException('Project title is required');
     }
-    
-    if (!createProjectDto.description || createProjectDto.description.trim().length === 0) {
+
+    if (
+      !createProjectDto.description ||
+      createProjectDto.description.trim().length === 0
+    ) {
       throw new BadRequestException('Project description is required');
     }
-    
+
     if (createProjectDto.budget && createProjectDto.budget < 0) {
       throw new BadRequestException('Budget cannot be negative');
     }
@@ -45,8 +55,11 @@ export class ProjectsController {
         throw new BadRequestException('Deadline must be in the future');
       }
     }
-    
-    return this.projectsService.createProject(createProjectDto, req.user.userId);
+
+    return this.projectsService.createProject(
+      createProjectDto,
+      req.user.userId,
+    );
   }
 
   // Get all projects for current user
@@ -56,17 +69,17 @@ export class ProjectsController {
     @Query('role') role?: 'client' | 'freelancer' | 'all',
     @Query('status') status?: ProjectStatus,
     @Query('limit') limit?: string,
-    @Query('offset') offset?: string
+    @Query('offset') offset?: string,
   ) {
     const limitNum = limit ? parseInt(limit, 10) : 20;
     const offsetNum = offset ? parseInt(offset, 10) : 0;
-    
+
     return this.projectsService.getProjects(
       req.user.userId,
       role || 'all',
       status,
       limitNum,
-      offsetNum
+      offsetNum,
     );
   }
 
@@ -79,7 +92,7 @@ export class ProjectsController {
     @Query('minBudget') minBudget?: string,
     @Query('maxBudget') maxBudget?: string,
     @Query('skills') skills?: string,
-    @Query('difficulty') difficulty?: DifficultyLevel
+    @Query('difficulty') difficulty?: DifficultyLevel,
   ) {
     if (!query || query.trim().length === 0) {
       throw new BadRequestException('Search query is required');
@@ -90,9 +103,13 @@ export class ProjectsController {
     if (minBudget) filters.minBudget = parseFloat(minBudget);
     if (maxBudget) filters.maxBudget = parseFloat(maxBudget);
     if (difficulty) filters.difficulty = difficulty;
-    if (skills) filters.skills = skills.split(',').filter(s => s.trim());
+    if (skills) filters.skills = skills.split(',').filter((s) => s.trim());
 
-    return this.projectsService.searchProjects(query.trim(), req.user.userId, filters);
+    return this.projectsService.searchProjects(
+      query.trim(),
+      req.user.userId,
+      filters,
+    );
   }
 
   // Get project statistics
@@ -112,9 +129,13 @@ export class ProjectsController {
   async updateProject(
     @Param('id') id: string,
     @Body() updateProjectDto: UpdateProjectDto,
-    @Request() req: any
+    @Request() req: any,
   ) {
-    return this.projectsService.updateProject(id, updateProjectDto, req.user.userId);
+    return this.projectsService.updateProject(
+      id,
+      updateProjectDto,
+      req.user.userId,
+    );
   }
 
   // Assign freelancer to project
@@ -123,13 +144,17 @@ export class ProjectsController {
   async assignFreelancer(
     @Param('id') id: string,
     @Body('freelancerId') freelancerId: string,
-    @Request() req: any
+    @Request() req: any,
   ) {
     if (!freelancerId) {
       throw new BadRequestException('Freelancer ID is required');
     }
-    
-    return this.projectsService.assignFreelancer(id, freelancerId, req.user.userId);
+
+    return this.projectsService.assignFreelancer(
+      id,
+      freelancerId,
+      req.user.userId,
+    );
   }
 
   // Complete project
@@ -145,7 +170,7 @@ export class ProjectsController {
   async cancelProject(
     @Param('id') id: string,
     @Body('reason') reason: string,
-    @Request() req: any
+    @Request() req: any,
   ) {
     return this.projectsService.cancelProject(id, req.user.userId, reason);
   }
@@ -168,17 +193,21 @@ export class ProjectsController {
   async deleteProject(@Param('id') id: string, @Request() req: any) {
     // Get project to check ownership and status
     const project = await this.projectsService.getProject(id, req.user.userId);
-    
+
     if (project.clientId !== req.user.userId) {
       throw new BadRequestException('Only project owner can delete projects');
     }
-    
+
     if (project.status !== 'PLANNING') {
-      throw new BadRequestException('Can only delete projects in planning stage');
+      throw new BadRequestException(
+        'Can only delete projects in planning stage',
+      );
     }
 
     // Note: In production, you might want to soft delete instead
     // For now, we'll update the service to handle deletion
-    throw new BadRequestException('Project deletion not implemented - consider canceling instead');
+    throw new BadRequestException(
+      'Project deletion not implemented - consider canceling instead',
+    );
   }
 }

@@ -12,14 +12,20 @@ async function bootstrap() {
 
   // Basic production/dev safe defaults
   const front = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+  const devFront = 'http://localhost:3001'; // Next.js dev server backup port
   app.enableCors({
     origin: (origin, callback) => {
       // allow requests with no origin (curl, server-to-server)
       if (!origin) return callback(null, true);
-      // allow your dev origin, or add other dev origins as needed
-      if (origin === front) return callback(null, true);
-      // dev fallback: allow any origin (ONLY for dev)
-      if (process.env.NODE_ENV !== 'production') return callback(null, true);
+      // allow your dev origins
+      if (origin === front || origin === devFront) return callback(null, true);
+      // dev fallback: allow any localhost origin in development
+      if (
+        process.env.NODE_ENV !== 'production' &&
+        origin?.includes('localhost')
+      ) {
+        return callback(null, true);
+      }
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,

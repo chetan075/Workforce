@@ -22,7 +22,7 @@ import {
   ArrowRight,
   Banknote
 } from 'lucide-react';
-import { fetchWalletBalance, withdrawFunds, fetchPendingPayments, fetchMe } from '@/lib/api';
+import { withdrawFunds, fetchPendingPayments, fetchMe } from '@/lib/api';
 
 interface WalletBalance {
   availableBalance: number;

@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthProvider';
-import { fetchInvoices, updateInvoiceStatus } from '../../lib/api';
+import { fetchInvoices, updateInvoiceStatus, verifyInvoiceIntegrity, getUserTrustScore } from '../../lib/api';
 
 interface Invoice {
   id: string;
@@ -18,6 +18,10 @@ interface Invoice {
   createdAt: string;
   client?: { name: string; email: string };
   freelancer?: { name: string; email: string };
+  blockchainHash?: string;
+  nftTokenId?: string;
+  isVerified?: boolean;
+  ipfsFiles?: { filename: string; ipfsHash: string; fileSize: number }[];
 }
 
 interface InvoiceStats {
@@ -32,7 +36,6 @@ interface InvoiceStats {
 
 export default function InvoicesPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user } = useAuth();
   
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -40,6 +43,8 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState<string | null>(null);
+  const [trustScore, setTrustScore] = useState<number | null>(null);
   
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -47,8 +52,18 @@ export default function InvoicesPage() {
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'status'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Show success message if coming from create page
-  const showCreatedMessage = searchParams.get('created') === 'true';
+  // Show success message if coming from create page (read from window.location to avoid CSR bailout hook requirement)
+  const [showCreatedMessage, setShowCreatedMessage] = useState(false);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      setShowCreatedMessage(params.get('created') === 'true');
+    } catch (e) {
+      // ignore (e.g., during tests)
+      setShowCreatedMessage(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadInvoices();
@@ -207,6 +222,91 @@ export default function InvoicesPage() {
     return diffDays;
   };
 
+  // Load user trust score
+  const loadTrustScore = async () => {
+    if (!user?.id) return;
+    try {
+      const response = await getUserTrustScore(user.id);
+      // Handle both object and number responses
+      const score = typeof response === 'object' ? response.trustScore : response;
+      setTrustScore(score);
+    } catch (err) {
+      console.error('Failed to load trust score:', err);
+    }
+  };
+
+  // Verify invoice blockchain integrity
+  const handleVerifyInvoice = async (invoiceId: string) => {
+    try {
+      setVerifying(invoiceId);
+      const verification = await verifyInvoiceIntegrity(invoiceId);
+      
+      // Update local state with verification result
+      setInvoices(prev => prev.map(invoice =>
+        invoice.id === invoiceId
+          ? { ...invoice, isVerified: verification.isValid }
+          : invoice
+      ));
+    } catch (err: any) {
+      setError(err.message || 'Failed to verify invoice');
+    } finally {
+      setVerifying(null);
+    }
+  };
+
+  // Load trust score on component mount
+  useEffect(() => {
+    loadTrustScore();
+  }, [user?.id]);
+
+  const getBlockchainStatusIcon = (invoice: Invoice) => {
+    if (invoice.nftTokenId) {
+      return (
+        <div className="flex items-center gap-1" title="NFT Minted">
+          <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          <span className="text-xs text-purple-400">NFT</span>
+        </div>
+      );
+    }
+    if (invoice.blockchainHash) {
+      return (
+        <div className="flex items-center gap-1" title="Blockchain Recorded">
+          <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          <span className="text-xs text-emerald-400">Secured</span>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const getVerificationIcon = (invoice: Invoice) => {
+    if (invoice.isVerified === true) {
+      return (
+        <div className="flex items-center gap-1" title="Verified on Blockchain">
+          <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-xs text-emerald-400">Verified</span>
+        </div>
+      );
+    }
+    if (invoice.isVerified === false) {
+      return (
+        <div className="flex items-center gap-1" title="Verification Failed">
+          <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-xs text-red-400">Invalid</span>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const stats = calculateStats();
 
   if (loading) {
@@ -228,7 +328,17 @@ export default function InvoicesPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-white">Invoice Management</h1>
-              <p className="text-slate-400 mt-1">Create, track, and manage your invoices</p>
+              <div className="flex items-center gap-4 mt-1">
+                <p className="text-slate-400">Create, track, and manage your invoices</p>
+                {trustScore !== null && (
+                  <div className="flex items-center gap-2 px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                    <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    <span className="text-sm text-purple-400 font-medium">Trust Score: {trustScore}</span>
+                  </div>
+                )}
+              </div>
             </div>
             
             <div className="flex gap-3">
@@ -468,6 +578,7 @@ export default function InvoicesPage() {
                     <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Amount</th>
                     <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Due Date</th>
                     <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Status</th>
+                    <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Blockchain</th>
                     <th className="text-left py-4 px-6 text-sm font-medium text-slate-300">Actions</th>
                   </tr>
                 </thead>
@@ -536,6 +647,21 @@ export default function InvoicesPage() {
                         </td>
                         
                         <td className="py-4 px-6">
+                          <div className="flex flex-col gap-1">
+                            {getBlockchainStatusIcon(invoice)}
+                            {getVerificationIcon(invoice)}
+                            {invoice.ipfsFiles && invoice.ipfsFiles.length > 0 && (
+                              <div className="flex items-center gap-1" title={`${invoice.ipfsFiles.length} files attached`}>
+                                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                </svg>
+                                <span className="text-xs text-blue-400">{invoice.ipfsFiles.length}</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        
+                        <td className="py-4 px-6">
                           <div className="flex items-center gap-2">
                             <Link
                               href={`/invoices/${invoice.id}`}
@@ -547,6 +673,23 @@ export default function InvoicesPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                               </svg>
                             </Link>
+
+                            {(invoice.status === 'PAID' || invoice.status === 'RELEASED') && invoice.blockchainHash && (
+                              <button
+                                onClick={() => handleVerifyInvoice(invoice.id)}
+                                disabled={verifying === invoice.id}
+                                className="p-2 text-slate-400 hover:text-purple-400 hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
+                                title="Verify on Blockchain"
+                              >
+                                {verifying === invoice.id ? (
+                                  <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                  </svg>
+                                )}
+                              </button>
+                            )}
                             
                             {invoice.status !== 'RELEASED' && (
                               <div className="relative">

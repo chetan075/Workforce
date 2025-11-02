@@ -4,7 +4,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../components/AuthProvider';
-import { fetchInvoice, updateInvoiceStatus } from '../../../lib/api';
+import { fetchInvoice, updateInvoiceStatus, mintInvoiceNFTSimple, getUserTrustScore } from '../../../lib/api';
+import BlockchainStatus from '../../../components/BlockchainStatus';
+import BlockchainFileUpload from '../../../components/BlockchainFileUpload';
+import TrustScoreDisplay from '../../../components/TrustScoreDisplay';
 
 interface Invoice {
   id: string;
@@ -20,6 +23,10 @@ interface Invoice {
   freelancer?: { name: string; email: string };
   project?: { title: string; description: string };
   storedFiles?: { filename: string; id: string }[];
+  blockchainHash?: string;
+  nftTokenId?: string;
+  isVerified?: boolean;
+  ipfsFiles?: { filename: string; ipfsHash: string; fileSize: number }[];
 }
 
 export default function InvoiceDetailPage() {
@@ -32,6 +39,8 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [minting, setMinting] = useState(false);
+  const [trustScore, setTrustScore] = useState<number | null>(null);
 
   useEffect(() => {
     loadInvoice();
@@ -116,6 +125,56 @@ export default function InvoiceDetailPage() {
   const printInvoice = () => {
     window.print();
   };
+
+  // Load trust score for the other party
+  const loadTrustScore = async () => {
+    if (!invoice) return;
+    const otherUserId = user?.role === 'FREELANCER' ? invoice.clientId : invoice.freelancerId;
+    try {
+      const response = await getUserTrustScore(otherUserId);
+      // Handle both object response and direct score response
+      const score = typeof response === 'object' ? response.trustScore : response;
+      setTrustScore(score);
+    } catch (err) {
+      console.error('Failed to load trust score:', err);
+    }
+  };
+
+  // Mint NFT for paid invoice
+  const handleMintNFT = async () => {
+    if (!invoice || invoice.status !== 'PAID') return;
+    
+    try {
+      setMinting(true);
+      const result = await mintInvoiceNFTSimple(invoice.id);
+      
+      // Update invoice with NFT data
+      setInvoice(prev => prev ? {
+        ...prev,
+        nftTokenId: result.tokenId,
+        blockchainHash: result.transactionHash
+      } : null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to mint NFT');
+    } finally {
+      setMinting(false);
+    }
+  };
+
+  // Handle file attachment callback
+  const handleFileAttached = (file: { filename: string; ipfsHash: string; fileSize: number }) => {
+    setInvoice(prev => prev ? {
+      ...prev,
+      ipfsFiles: [...(prev.ipfsFiles || []), file]
+    } : null);
+  };
+
+  // Load trust score when invoice loads
+  useEffect(() => {
+    if (invoice) {
+      loadTrustScore();
+    }
+  }, [invoice?.id]);
 
   if (loading) {
     return (
@@ -496,6 +555,64 @@ export default function InvoiceDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Blockchain Status */}
+            <BlockchainStatus
+              invoiceId={invoice.id}
+              blockchainHash={invoice.blockchainHash}
+              nftTokenId={invoice.nftTokenId}
+              isVerified={invoice.isVerified}
+              status={invoice.status}
+            />
+
+            {/* NFT Minting */}
+            {invoice.status === 'PAID' && !invoice.nftTokenId && (
+              <div className="panel">
+                <h3 className="text-lg font-semibold text-white mb-4">Create NFT</h3>
+                <p className="text-slate-400 text-sm mb-4">
+                  Mint this invoice as an NFT on the blockchain for permanent record keeping and enhanced security.
+                </p>
+                <button
+                  onClick={handleMintNFT}
+                  disabled={minting}
+                  className="w-full px-4 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center gap-3"
+                >
+                  {minting ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Minting NFT...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                      Mint as NFT
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* File Upload */}
+            {['PAID', 'RELEASED'].includes(invoice.status) && (
+              <div className="panel">
+                <h3 className="text-lg font-semibold text-white mb-4">Attach Files</h3>
+                <BlockchainFileUpload
+                  invoiceId={invoice.id}
+                  onFileAttached={handleFileAttached}
+                />
+              </div>
+            )}
+
+            {/* Trust Score */}
+            {trustScore !== null && (
+              <TrustScoreDisplay
+                userId={user?.role === 'FREELANCER' ? invoice.clientId : invoice.freelancerId}
+                currentScore={trustScore}
+                canUpdate={false}
+              />
+            )}
           </div>
         </div>
       </div>

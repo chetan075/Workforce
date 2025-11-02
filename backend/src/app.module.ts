@@ -20,11 +20,15 @@ import { WorkOpportunitiesModule } from './work-opportunities/work-opportunities
 import { TasksModule } from './tasks/tasks.module';
 import { ProjectsModule } from './projects/projects.module';
 import { SkillsModule } from './skills/skills.module';
+// Temporarily commented out until MongoDB issues are resolved
+import { MongoDBModule } from './mongodb/mongodb.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     // PrismaModule,
+    // Temporarily commented out until MongoDB issues are resolved
+    MongoDBModule,
     AuthModule,
     UsersModule,
     InvoicesModule,

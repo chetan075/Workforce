@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { 
   BarChart3, 
@@ -20,9 +20,10 @@ import {
   Plus
 } from 'lucide-react';
 import InvoiceTable from '../../components/InvoiceTable';
-import { fetchInvoices } from '../../lib/api';
+import { fetchInvoices, getUserTrustScore } from '../../lib/api';
 import { useAuth } from '../../components/AuthProvider';
 import CreateInvoiceModal from '../../components/CreateInvoiceModal';
+import TrustScoreDisplay from '../../components/TrustScoreDisplay';
 
 type Invoice = { id: string; title: string; amount: number; status: string };
 
@@ -102,71 +103,103 @@ const quickLinks: QuickLink[] = [
 export default function DashboardPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [creating, setCreating] = useState(false);
-  const { loading } = useAuth();
+  const { loading, user } = useAuth();
+  const [trustScore, setTrustScore] = useState<number | null>(null);
+  const [blockchainStats, setBlockchainStats] = useState({
+    nftInvoices: 0,
+    verifiedTransactions: 0,
+    ipfsFiles: 0,
+    totalSecuredValue: 0
+  });
   
   const [stats, setStats] = useState<DashboardStats>({
-    totalProjects: 0,
-    activeProjects: 0,
-    totalEarnings: 0,
-    monthlyEarnings: 0,
-    completedTasks: 0,
-    rating: 0,
-    pendingInvoices: 0,
-    unreadMessages: 0
+    totalProjects: 24,
+    activeProjects: 3,
+    totalEarnings: 45000,
+    monthlyEarnings: 8500,
+    completedTasks: 156,
+    rating: 4.8,
+    pendingInvoices: 2,
+    unreadMessages: 5
   });
 
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([
+    {
+      id: '1',
+      type: 'project',
+      title: 'E-commerce Project Completed',
+      description: 'Successfully delivered the React e-commerce platform',
+      time: '2 hours ago',
+      status: 'completed'
+    },
+    {
+      id: '2',
+      type: 'payment',
+      title: 'Payment Received',
+      description: '$2,500 from TechStartup Co.',
+      time: '1 day ago',
+      status: 'completed'
+    },
+    {
+      id: '3',
+      type: 'message',
+      title: 'New Message',
+      description: 'Client inquiry about mobile app project',
+      time: '2 days ago',
+      status: 'pending'
+    }
+  ]);
 
+  // Calculate blockchain statistics from invoices
+  const calculateBlockchainStats = useCallback((invoices: Invoice[]) => {
+    const nftInvoices = invoices.filter(inv => (inv as any).nftTokenId).length;
+    const verifiedTransactions = invoices.filter(inv => (inv as any).isVerified).length;
+    const ipfsFiles = invoices.reduce((sum, inv) => sum + ((inv as any).ipfsFiles?.length || 0), 0);
+    const totalSecuredValue = invoices
+      .filter(inv => (inv as any).blockchainHash)
+      .reduce((sum, inv) => sum + inv.amount, 0);
+    
+    setBlockchainStats({
+      nftInvoices,
+      verifiedTransactions,
+      ipfsFiles,
+      totalSecuredValue
+    });
+  }, []);
+
+  // Load invoice list when auth state is resolved and user is authenticated
   useEffect(() => {
+    if (loading) return;
+    if (!user) return;
     const load = async () => {
       try {
         const data = await fetchInvoices();
         setInvoices(data || []);
+        calculateBlockchainStats(data || []);
       } catch (e) {
         console.error(e);
       }
     };
     load();
+  }, [loading, user, calculateBlockchainStats]);
 
-    // Mock stats data
-    setStats({
-      totalProjects: 24,
-      activeProjects: 3,
-      totalEarnings: 45000,
-      monthlyEarnings: 8500,
-      completedTasks: 156,
-      rating: 4.8,
-      pendingInvoices: 2,
-      unreadMessages: 5
-    });
-
-    setRecentActivity([
-      {
-        id: '1',
-        type: 'project',
-        title: 'E-commerce Project Completed',
-        description: 'Successfully delivered the React e-commerce platform',
-        time: '2 hours ago',
-        status: 'completed'
-      },
-      {
-        id: '2',
-        type: 'payment',
-        title: 'Payment Received',
-        description: '$2,500 from TechStartup Co.',
-        time: '1 day ago',
-        status: 'completed'
-      },
-      {
-        id: '3',
-        type: 'message',
-        title: 'New Message',
-        description: 'Client inquiry about mobile app project',
-        time: '2 days ago',
-        status: 'pending'
+    // Load trust score
+  useEffect(() => {
+    if (!user?.id) return;
+    const loadTrustScore = async () => {
+      try {
+        const response = await getUserTrustScore(user.id);
+        // Handle both object response and direct score response
+        const score = typeof response === 'object' ? response.trustScore : response;
+        setTrustScore(score);
+      } catch (e) {
+        console.error('Failed to load trust score:', e);
       }
-    ]);
-  }, []);
+    };
+    loadTrustScore();
+  }, [user?.id]);
+
+  // recentActivity and stats initialized inline
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -213,7 +246,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Welcome to Workverse</h1>
-          <p className="text-gray-400">Here's what's happening with your freelance work today.</p>
+          <p className="text-gray-400">Here&apos;s what's happening with your freelance work today.</p>
         </div>
         <div className="flex items-center gap-3">
           <Link
@@ -292,6 +325,119 @@ export default function DashboardPage() {
             <p className="text-xs text-gray-500">{stats.pendingInvoices} pending invoices</p>
           </div>
         </div>
+      </div>
+
+      {/* Blockchain Stats */}
+      <div className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/20 rounded-lg p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-white mb-1">Blockchain Security</h2>
+            <p className="text-slate-400">Your invoices secured on the Aptos blockchain</p>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+            <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span className="text-sm text-purple-400 font-medium">Powered by Aptos</span>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-purple-600/20 rounded-lg">
+                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-white">{blockchainStats.nftInvoices}</p>
+                <p className="text-xs text-gray-400">NFT Invoices</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-emerald-600/20 rounded-lg">
+                <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-white">{blockchainStats.verifiedTransactions}</p>
+                <p className="text-xs text-gray-400">Verified</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-blue-600/20 rounded-lg">
+                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-white">{blockchainStats.ipfsFiles}</p>
+                <p className="text-xs text-gray-400">IPFS Files</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-yellow-600/20 rounded-lg">
+                <DollarSign className="w-5 h-5 text-yellow-400" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-white">{formatCurrency(blockchainStats.totalSecuredValue)}</p>
+                <p className="text-xs text-gray-400">Secured Value</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {trustScore !== null && (
+          <div className="mt-6 grid lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1">
+              <TrustScoreDisplay
+                userId={user?.id || ''}
+                currentScore={trustScore}
+                canUpdate={false}
+              />
+            </div>
+            <div className="lg:col-span-2 bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-white mb-3">Blockchain Benefits</h3>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <svg className="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-gray-300">Immutable invoice records with cryptographic proof</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <svg className="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-gray-300">Decentralized file storage with IPFS integration</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <svg className="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-gray-300">Transparent trust scoring and reputation tracking</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <svg className="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-gray-300">Smart contract-based escrow and payment automation</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quick Actions */}
@@ -462,6 +608,7 @@ export default function DashboardPage() {
 
       {creating && (
         <CreateInvoiceModal
+          open={creating}
           onClose={() => setCreating(false)}
           onSave={(invoice) => {
             setInvoices([...invoices, invoice]);

@@ -27,6 +27,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Eye,
+  Unlock,
   Loader,
   AlertTriangle,
   FileSpreadsheet,
@@ -355,6 +356,7 @@ export default function FilePreviewPage() {
 }
 
 function FilePreviewModal({ file, onClose, onNext, onPrevious, hasNext, hasPrevious }: PreviewProps) {
+  if (!file) return null;
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);

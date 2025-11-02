@@ -336,7 +336,12 @@ export default function SearchDiscoveryPage() {
       }
 
       if (filters.category !== 'all') {
-        filtered = filtered.filter(result => result.type === filters.category);
+        filtered = filtered.filter(result => {
+          if (filters.category === 'projects') return result.type === 'project';
+          if (filters.category === 'freelancers') return result.type === 'freelancer';
+          if (filters.category === 'services') return result.type === 'service';
+          return true;
+        });
       }
 
       if (filters.skills.length > 0) {
