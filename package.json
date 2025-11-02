@@ -1,0 +1,14 @@
+{
+  "name": "chainbill",
+  "version": "1.0.0",
+  "description": "ChainBill - Blockchain Invoice Platform",
+  "main": "backend/dist/main.js",
+  "scripts": {
+    "build": "cd backend && npm install --legacy-peer-deps && npm run build && npx prisma generate",
+    "start": "cd backend && npm run start:prod",
+    "dev": "cd backend && npm run start:dev"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
