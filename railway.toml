@@ -1,0 +1,35 @@
+# Railway deployment configuration for ChainBill
+# Docs: https://docs.railway.app/reference/config-file
+
+[build]
+builder = "nixpacks"
+buildCommand = "cd backend && npm install --legacy-peer-deps && npm run build && npx prisma generate"
+
+[deploy]
+startCommand = "cd backend && npm run start:prod"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "chainbill-backend"
+source = "backend"
+
+[services.variables]
+NODE_ENV = "production"
+PORT = "5000"
+APTOS_NETWORK = "devnet"
+APTOS_STRICT = "true"
+APTOS_CONTRACT_ADDRESS = "0x04fa7024f8877de01aa137c92a5ea662e7544d44620fd53bd2b051d150d8c0d0"
+
+[[services]]
+name = "chainbill-frontend" 
+source = "frontend"
+
+[services.variables]
+NODE_ENV = "production"
+NEXT_PUBLIC_API_URL = "${{chainbill-backend.RAILWAY_PUBLIC_DOMAIN}}"
+
+[environments.production.variables]
+DATABASE_URL = "${{Postgres.DATABASE_URL}}"
+MONGODB_URI = "mongodb+srv://user123:80OPB092rULxVZaE@workverse.qohwaws.mongodb.net/workverse?retryWrites=true&w=majority"
+JWT_SECRET = "${{JWT_SECRET}}"

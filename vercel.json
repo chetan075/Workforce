@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "backend/dist/main.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "backend/dist/main.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "frontend/$1"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "APTOS_NETWORK": "devnet",
+    "APTOS_STRICT": "true",
+    "APTOS_CONTRACT_ADDRESS": "0x04fa7024f8877de01aa137c92a5ea662e7544d44620fd53bd2b051d150d8c0d0"
+  }
+}

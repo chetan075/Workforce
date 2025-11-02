@@ -22,16 +22,12 @@ services:
         fromDatabase:
           name: chainbill-db
           property: connectionString
-      - key: MONGODB_URI
-        value: mongodb+srv://user123:80OPB092rULxVZaE@workverse.qohwaws.mongodb.net/workverse?retryWrites=true&w=majority
       - key: JWT_SECRET
         generateValue: true
       - key: APTOS_NETWORK
         value: devnet
       - key: APTOS_STRICT
         value: true
-      - key: APTOS_CONTRACT_ADDRESS
-        value: 0x04fa7024f8877de01aa137c92a5ea662e7544d44620fd53bd2b051d150d8c0d0
       - key: FRONTEND_URL
         fromService:
           type: web
@@ -52,7 +48,7 @@ services:
     region: oregon
     plan: free
     branch: main
-    buildCommand: npm install --legacy-peer-deps && npm run build
+    buildCommand: npm install && npm run build
     staticPublishPath: ./out
     routes:
       - type: rewrite

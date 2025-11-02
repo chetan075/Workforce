@@ -558,7 +558,9 @@ export class MongoAppLog extends Document {
 
 export const MongoAppLogSchema = SchemaFactory.createForClass(MongoAppLog);
 
-// Create compound indexes for performance (avoiding duplicate single-field indexes)
+// Create indexes for performance
+MongoUserSchema.index({ email: 1 });
+MongoUserSchema.index({ walletAddress: 1 });
 MongoInvoiceSchema.index({ clientId: 1, status: 1 });
 MongoInvoiceSchema.index({ freelancerId: 1, status: 1 });
 MongoInvoiceSchema.index({ onchainTxHash: 1 });
@@ -570,6 +572,7 @@ MongoReviewSchema.index({ projectId: 1, authorId: 1, targetId: 1 }, { unique: tr
 MongoStoredFileSchema.index({ invoiceId: 1 });
 MongoStoredFileSchema.index({ ipfsHash: 1 });
 MongoDisputeSchema.index({ invoiceId: 1 });
+MongoReputationSchema.index({ userId: 1 });
 MongoAnalyticsSchema.index({ eventType: 1, timestamp: -1 });
 MongoAnalyticsSchema.index({ userId: 1, timestamp: -1 });
 MongoAppLogSchema.index({ level: 1, timestamp: -1 });
