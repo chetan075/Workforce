@@ -8,15 +8,15 @@
   "scripts": {
     "seed": "node Prisma/seed.js",
     "build": "npx nest build",
-    "render-build": "npm install --legacy-peer-deps && npx nest build && npx prisma generate && npx prisma migrate deploy",
+    "render-build": "npm install --legacy-peer-deps && npx nest build && npx prisma generate --schema=./Prisma/schema.prisma && npx prisma migrate deploy --schema=./Prisma/schema.prisma",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "postinstall": "npx prisma generate",
-    "db:migrate": "npx prisma migrate deploy",
-    "db:seed": "npx prisma db seed",
+    "postinstall": "npx prisma generate --schema=./Prisma/schema.prisma",
+    "db:migrate": "npx prisma migrate deploy --schema=./Prisma/schema.prisma",
+    "db:seed": "npx prisma db seed --schema=./Prisma/schema.prisma",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -77,6 +77,9 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "prisma": {
+    "schema": "Prisma/schema.prisma"
   },
   "jest": {
     "moduleFileExtensions": [
