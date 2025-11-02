@@ -7,7 +7,8 @@
   "license": "UNLICENSED",
   "scripts": {
     "seed": "node Prisma/seed.js",
-    "build": "nest build",
+    "build": "npx nest build",
+    "render-build": "npm install --legacy-peer-deps && npx nest build && npx prisma generate && npx prisma migrate deploy",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
