@@ -9,6 +9,7 @@ import { InvoicesModule } from './invoices/invoices.module';
 import { ValueLinkModule } from './valuelink/valuelink.module';
 import { PaymentsModule } from './payments/payments.module';
 import { CommonModule } from './common/common.module';
+// Blockchain module - re-enabled for local development
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { AiModule } from './ai/ai.module';
 import { StorageModule } from './storage/storage.module';
@@ -20,20 +21,19 @@ import { WorkOpportunitiesModule } from './work-opportunities/work-opportunities
 import { TasksModule } from './tasks/tasks.module';
 import { ProjectsModule } from './projects/projects.module';
 import { SkillsModule } from './skills/skills.module';
-// Temporarily commented out until MongoDB issues are resolved
-import { MongoDBModule } from './mongodb/mongodb.module';
+// Temporarily disabled MongoDB module for simpler production deployment
+// import { MongoDBModule } from './mongodb/mongodb.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     // PrismaModule,
-    // Temporarily commented out until MongoDB issues are resolved
-    MongoDBModule,
     AuthModule,
     UsersModule,
     InvoicesModule,
     ValueLinkModule,
     PaymentsModule,
+    // Blockchain module - re-enabled for local development
     BlockchainModule,
     AiModule,
     StorageModule,
@@ -46,6 +46,8 @@ import { MongoDBModule } from './mongodb/mongodb.module';
     ProjectsModule,
     SkillsModule,
     CommonModule,
+    // Temporarily disabled MongoDB module for simpler production deployment
+    // MongoDBModule,
   ],
   controllers: [AppController],
   providers: [AppService],

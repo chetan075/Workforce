@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Enable static export for Render deployment
-  output: 'export',
+  // Disable static export for now to allow dynamic routes
+  // output: 'export',
   trailingSlash: true,
   
   // Image optimization

@@ -86,10 +86,15 @@ export class BlockchainService {
     signature: string,
     publicKeyHex?: string,
   ) {
-    console.log('🔍 Verify signature called:', {
+    console.log('� verifySignature called with:', {
       address,
       signature: signature.substring(0, 20) + '...',
       publicKeyHex: publicKeyHex?.substring(0, 20) + '...',
+      fullSignature: signature,
+      fullAddress: address,
+      fullPublicKey: publicKeyHex,
+      nodeEnv: process.env.NODE_ENV,
+      skipSignatureVerification: process.env.SKIP_SIGNATURE_VERIFICATION
     });
 
     const entry = this.challenges.get(address.toLowerCase());
@@ -104,13 +109,21 @@ export class BlockchainService {
     const isDevelopmentPublicKey =
       publicKeyHex === '0xdev_public_key_placeholder' || !publicKeyHex;
 
-    console.log('🔧 Development mode checks:', {
+    console.log('🔧 Development mode pattern checks:', {
       isDevelopmentSignature,
       isDevelopmentAddress,
       isDevelopmentPublicKey,
-      signatureStart: signature.substring(0, 13),
-      addressStart: address.substring(0, 6),
+      signatureStart: signature.substring(0, 15),
+      addressStart: address.substring(0, 8),
       publicKey: publicKeyHex,
+      signatureLength: signature.length,
+      addressLength: address.length,
+      patterns: {
+        sigStartsWithDev: signature.startsWith('dev_signature_'),
+        addrStartsWith0xdev: address.startsWith('0xdev'),
+        pubKeyIsDevPlaceholder: publicKeyHex === '0xdev_public_key_placeholder',
+        pubKeyIsNull: !publicKeyHex
+      }
     });
 
     if (
@@ -119,8 +132,13 @@ export class BlockchainService {
       isDevelopmentPublicKey
     ) {
       console.log(
-        '🔧 Development mode detected - bypassing signature verification',
+        '🔧 PATTERN-BASED DEVELOPMENT MODE DETECTED - bypassing signature verification'
       );
+      console.log('Triggered by:', {
+        signature: isDevelopmentSignature ? 'dev_signature pattern' : null,
+        address: isDevelopmentAddress ? '0xdev pattern' : null,
+        publicKey: isDevelopmentPublicKey ? 'dev placeholder or null' : null,
+      });
       this.challenges.delete(address.toLowerCase());
 
       // Create or find user by wallet address, then issue JWT with user.id as sub
@@ -158,8 +176,28 @@ export class BlockchainService {
     }
 
     // TEMPORARY: Allow real wallets to pass in development/testing
-    if (process.env.NODE_ENV === 'development' || process.env.SKIP_SIGNATURE_VERIFICATION === 'true') {
-      console.log('🚧 DEVELOPMENT MODE: Skipping real signature verification for testing');
+    const isNodeEnvDevelopment = process.env.NODE_ENV === 'development';
+    const isSkipSignatureVerification = process.env.SKIP_SIGNATURE_VERIFICATION === 'true';
+    const shouldSkipVerification = isNodeEnvDevelopment || isSkipSignatureVerification;
+    
+    console.log('🌍 Environment-based development check:', {
+      nodeEnv: process.env.NODE_ENV,
+      skipSignatureVerification: process.env.SKIP_SIGNATURE_VERIFICATION,
+      isNodeEnvDevelopment,
+      isSkipSignatureVerification,
+      shouldSkipVerification,
+      allEnvVars: {
+        NODE_ENV: process.env.NODE_ENV,
+        SKIP_SIGNATURE_VERIFICATION: process.env.SKIP_SIGNATURE_VERIFICATION,
+        APTOS_NETWORK: process.env.APTOS_NETWORK,
+        APTOS_SMART_CONTRACT_ADDRESS: process.env.APTOS_SMART_CONTRACT_ADDRESS,
+      },
+    });
+    
+    if (shouldSkipVerification) {
+      console.log(
+        '🚧 ENVIRONMENT-BASED DEVELOPMENT MODE: Skipping real signature verification for testing',
+      );
       this.challenges.delete(address.toLowerCase());
 
       // Create or find user by wallet address, then issue JWT with user.id as sub

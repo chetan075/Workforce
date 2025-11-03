@@ -50,6 +50,12 @@ export default function Breadcrumbs() {
     let currentPath = '';
     segments.forEach((segment, index) => {
       currentPath += `/${segment}`;
+      
+      // Skip adding duplicate dashboard
+      if (currentPath === '/dashboard') {
+        return;
+      }
+      
       const label = routeLabels[currentPath] || segment.charAt(0).toUpperCase() + segment.slice(1);
       
       breadcrumbs.push({
@@ -71,7 +77,7 @@ export default function Breadcrumbs() {
     <nav className="flex items-center space-x-2 text-sm text-gray-400 mb-6">
       <Home className="h-4 w-4" />
       {breadcrumbs.map((item, index) => (
-        <div key={item.href} className="flex items-center">
+        <div key={`${index}-${item.href}`} className="flex items-center">
           {index > 0 && <ChevronRight className="h-4 w-4 mx-2" />}
           {index === breadcrumbs.length - 1 ? (
             <span className="text-white font-medium">{item.label}</span>

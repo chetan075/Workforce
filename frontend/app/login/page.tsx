@@ -44,26 +44,39 @@ export default function LoginPage() {
   };
 
   const connectWallet = async () => {
+    console.log('🚀 Starting wallet connection process...');
     setError('');
     setIsWalletLogin(true);
     
     try {
+      console.log('📱 Step 1: Connecting to Aptos wallet...');
       const { address, publicKey, provider } = await AptosWallet.connectAptosWallet();
+      console.log('✅ Step 1 Complete - Wallet connected:', { 
+        address: address?.substring(0, 10) + '...', 
+        hasPublicKey: !!publicKey,
+        providerType: (provider as any).isDev ? 'development' : 'real'
+      });
       
       // Check if this is a development wallet
       if ((provider as any).isDev) {
         console.log('🔧 Using development wallet simulation');
       }
       
-      // Request challenge from backend
+      console.log('🎯 Step 2: Requesting challenge from backend...');
       const challengeJson = await requestWalletChallenge(address);
       const challenge = challengeJson.challenge;
+      console.log('✅ Step 2 Complete - Challenge received:', challenge?.substring(0, 20) + '...');
       
-      // Sign the challenge with the wallet
+      console.log('✍️ Step 3: Signing challenge with wallet...');
       const sig = await AptosWallet.signMessageWithWallet(provider, challenge);
+      console.log('✅ Step 3 Complete - Message signed:', sig.signature?.substring(0, 20) + '...');
       
-      // Verify signature with backend (this creates user if needed and sets cookie)
+      console.log('🔐 Step 4: Verifying signature with backend...');
       const verifyJson = await verifyWalletSignature(address, sig.signature, publicKey ?? undefined);
+      console.log('✅ Step 4 Complete - Signature verified:', { 
+        hasToken: !!verifyJson?.access_token,
+        userId: verifyJson?.user?.id
+      });
       
       // Store token if returned (backend also sets HttpOnly cookie)
       if (verifyJson?.access_token) {
@@ -72,12 +85,17 @@ export default function LoginPage() {
         } catch (_) {}
       }
       
-      console.log('Wallet authentication successful:', verifyJson);
+      console.log('🎉 Wallet authentication successful! Redirecting to dashboard...');
       
       // Refresh auth state by checking /auth/me
       window.location.href = '/dashboard';
     } catch (error: any) {
-      console.error('Wallet login error:', error);
+      console.error('❌ Wallet login error at step:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       
       if (error.message?.includes('No Aptos wallet provider found')) {
         setError('No Aptos wallet found. Please install Petra Wallet or Martian Wallet from your browser\'s extension store, then refresh this page.');
@@ -226,7 +244,10 @@ export default function LoginPage() {
 
           {/* Wallet Login */}
           <button
-            onClick={connectWallet}
+            onClick={() => {
+              console.log('🔘 Wallet connect button clicked!');
+              connectWallet();
+            }}
             disabled={isWalletLogin}
             className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
           >

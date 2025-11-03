@@ -30,9 +30,36 @@ export async function connectAptosWallet(): Promise<{ address: string; publicKey
 {
   let provider = getProvider();
   
-  // If no provider found, check if we're in development mode
+  // Add comprehensive logging for debugging
+  console.log('🔍 Wallet Detection Debug Info:', {
+    hasProvider: !!provider,
+    providerName: provider?.name || 'None',
+    windowExists: typeof window !== 'undefined',
+    hostname: typeof window !== 'undefined' ? window.location.hostname : 'N/A',
+    nodeEnv: process.env.NODE_ENV,
+    availableProviders: {
+      aptos: !!(typeof window !== 'undefined' && (window as any)?.aptos),
+      martian: !!(typeof window !== 'undefined' && (window as any)?.martian),
+      petra: !!(typeof window !== 'undefined' && (window as any)?.petra),
+    }
+  });
+  
+  // If no provider found, check if we should use development mode
   if (!provider) {
-    if (process.env.NODE_ENV === 'development') {
+    // Check multiple conditions for development mode
+    const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const isDev = process.env.NODE_ENV === 'development';
+    const allowDevMode = isLocalhost || isDev;
+    
+    console.log('🔧 Development Mode Check:', {
+      isLocalhost,
+      isDev,
+      allowDevMode,
+      hostname: typeof window !== 'undefined' ? window.location.hostname : 'N/A',
+      nodeEnv: process.env.NODE_ENV
+    });
+    
+    if (allowDevMode) {
       console.warn('⚠️ No Aptos wallet found. Using development mode wallet simulation.');
       console.log('💡 To use a real wallet, install Petra Wallet or Martian Wallet from your browser extension store.');
       provider = createDevWallet();
