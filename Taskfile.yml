@@ -1,0 +1,38 @@
+version: '3'
+tasks:
+  build:
+    desc: Build Docker image
+    cmds:
+      - docker build -t chainbill:latest .
+
+  run:
+    desc: Run application locally with Docker Compose
+    cmds:
+      - docker-compose up -d
+
+  stop:
+    desc: Stop local Docker containers
+    cmds:
+      - docker-compose down
+
+  clean:
+    desc: Clean up Docker images and containers
+    cmds:
+      - docker-compose down -v
+      - docker system prune -f
+
+  deploy-ecr:
+    desc: Deploy to AWS ECR
+    cmds:
+      - aws ecr get-login-password --region {{.AWS_REGION}} | docker login --username AWS --password-stdin {{.AWS_ACCOUNT}}.dkr.ecr.{{.AWS_REGION}}.amazonaws.com
+      - docker tag chainbill:latest {{.AWS_ACCOUNT}}.dkr.ecr.{{.AWS_REGION}}.amazonaws.com/chainbill:latest
+      - docker push {{.AWS_ACCOUNT}}.dkr.ecr.{{.AWS_REGION}}.amazonaws.com/chainbill:latest
+
+  deploy-ecs:
+    desc: Deploy to AWS ECS
+    cmds:
+      - aws ecs update-service --cluster chainbill-cluster --service chainbill-service --force-new-deployment
+
+vars:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT: "{{.AWS_ACCOUNT}}"

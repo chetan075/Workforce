@@ -53,11 +53,18 @@ export async function login(email: string, password: string) {
   });
 }
 
-export async function register(email: string, password: string, name?: string) {
+export async function register(email: string, password: string, name?: string, role?: 'CLIENT' | 'FREELANCER') {
+  // Ensure role has a default value and is never undefined
+  const finalRole = role || 'FREELANCER';
+  const requestBody = { email, password, name, role: finalRole };
+  console.log('🚀 Frontend API - Sending registration request:', requestBody);
+  console.log('🚀 Frontend API - Request body keys:', Object.keys(requestBody));
+  console.log('🚀 Frontend API - Role value:', finalRole, 'Type:', typeof finalRole);
+  
   return api("/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, name }),
+    body: JSON.stringify(requestBody),
   });
 }
 

@@ -60,7 +60,7 @@ export class MongoUser extends Document {
   @Prop({ required: true, unique: true })
   id: string; // UUID from Prisma
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   email: string;
 
   @Prop()
@@ -69,7 +69,7 @@ export class MongoUser extends Document {
   @Prop()
   password?: string;
 
-  @Prop({ unique: true, sparse: true })
+  @Prop()
   walletAddress?: string;
 
   @Prop({ enum: Role, default: Role.FREELANCER })
@@ -258,7 +258,8 @@ export class MongoUserSkill extends Document {
   verified: boolean;
 }
 
-export const MongoUserSkillSchema = SchemaFactory.createForClass(MongoUserSkill);
+export const MongoUserSkillSchema =
+  SchemaFactory.createForClass(MongoUserSkill);
 
 // Review Schema (Exact mirror of Prisma Review model)
 @Schema({ timestamps: true, collection: 'reviews' })
@@ -327,7 +328,8 @@ export class MongoStoredFile extends Document {
   createdAt: Date;
 }
 
-export const MongoStoredFileSchema = SchemaFactory.createForClass(MongoStoredFile);
+export const MongoStoredFileSchema =
+  SchemaFactory.createForClass(MongoStoredFile);
 
 // Dispute Schema (Exact mirror of Prisma Dispute model)
 @Schema({ timestamps: true, collection: 'disputes' })
@@ -375,7 +377,8 @@ export class MongoDisputeVote extends Document {
   createdAt: Date;
 }
 
-export const MongoDisputeVoteSchema = SchemaFactory.createForClass(MongoDisputeVote);
+export const MongoDisputeVoteSchema =
+  SchemaFactory.createForClass(MongoDisputeVote);
 
 // Reputation Schema (Exact mirror of Prisma Reputation model)
 @Schema({ timestamps: true, collection: 'reputations' })
@@ -426,7 +429,8 @@ export class MongoReputation extends Document {
   createdAt: Date;
 }
 
-export const MongoReputationSchema = SchemaFactory.createForClass(MongoReputation);
+export const MongoReputationSchema =
+  SchemaFactory.createForClass(MongoReputation);
 
 // ValueLink Schema (Exact mirror of Prisma ValueLink model)
 @Schema({ timestamps: true, collection: 'valuelinks' })
@@ -450,7 +454,8 @@ export class MongoValueLink extends Document {
   createdAt: Date;
 }
 
-export const MongoValueLinkSchema = SchemaFactory.createForClass(MongoValueLink);
+export const MongoValueLinkSchema =
+  SchemaFactory.createForClass(MongoValueLink);
 
 // ProjectSkill Schema (Missing from MongoDB - exact mirror of Prisma ProjectSkill model)
 @Schema({ timestamps: true, collection: 'projectskills' })
@@ -468,18 +473,26 @@ export class MongoProjectSkill extends Document {
   required: boolean;
 }
 
-export const MongoProjectSkillSchema = SchemaFactory.createForClass(MongoProjectSkill);
+export const MongoProjectSkillSchema =
+  SchemaFactory.createForClass(MongoProjectSkill);
 
 // Additional MongoDB-specific schemas for analytics and file storage
 @Schema({ timestamps: true, collection: 'analytics' })
 export class MongoAnalytics extends Document {
   @Prop({
     required: true,
-    enum: ['invoice_created', 'payment_received', 'nft_minted', 'file_uploaded', 'user_login', 'dispute_opened'],
+    enum: [
+      'invoice_created',
+      'payment_received',
+      'nft_minted',
+      'file_uploaded',
+      'user_login',
+      'dispute_opened',
+    ],
   })
   eventType: string;
 
-  @Prop({ required: true, index: true })
+  @Prop({ required: true })
   userId: string;
 
   @Prop({ index: true })
@@ -515,7 +528,8 @@ export class MongoAnalytics extends Document {
   timestamp: Date;
 }
 
-export const MongoAnalyticsSchema = SchemaFactory.createForClass(MongoAnalytics);
+export const MongoAnalyticsSchema =
+  SchemaFactory.createForClass(MongoAnalytics);
 
 @Schema({ timestamps: true, collection: 'applogs' })
 export class MongoAppLog extends Document {
@@ -558,22 +572,21 @@ export class MongoAppLog extends Document {
 
 export const MongoAppLogSchema = SchemaFactory.createForClass(MongoAppLog);
 
-// Create indexes for performance
-MongoUserSchema.index({ email: 1 });
-MongoUserSchema.index({ walletAddress: 1 });
+// Create indexes for performance (only non-unique indexes or compound indexes)
+MongoUserSchema.index({ email: 1 }); // email needs index but not unique to allow multiple OAuth accounts
+// Note: walletAddress partial filter unique index is managed manually in MongoDB Atlas
 MongoInvoiceSchema.index({ clientId: 1, status: 1 });
 MongoInvoiceSchema.index({ freelancerId: 1, status: 1 });
 MongoInvoiceSchema.index({ onchainTxHash: 1 });
 MongoProjectSchema.index({ clientId: 1, status: 1 });
 MongoProjectSchema.index({ freelancerId: 1, status: 1 });
-MongoProjectSkillSchema.index({ projectId: 1, skillId: 1 }, { unique: true });
-MongoUserSkillSchema.index({ userId: 1, skillId: 1 }, { unique: true });
-MongoReviewSchema.index({ projectId: 1, authorId: 1, targetId: 1 }, { unique: true });
+// Note: projectId+skillId and userId+skillId unique indexes are already created by @Prop({ unique: true })
+// Note: projectId+authorId+targetId unique index is already created by @Prop({ unique: true })
 MongoStoredFileSchema.index({ invoiceId: 1 });
 MongoStoredFileSchema.index({ ipfsHash: 1 });
 MongoDisputeSchema.index({ invoiceId: 1 });
-MongoReputationSchema.index({ userId: 1 });
+// Note: MongoReputation userId is already unique, no need for additional index
 MongoAnalyticsSchema.index({ eventType: 1, timestamp: -1 });
-MongoAnalyticsSchema.index({ userId: 1, timestamp: -1 });
+MongoAnalyticsSchema.index({ userId: 1, timestamp: -1 }); // compound index covers userId indexing
 MongoAppLogSchema.index({ level: 1, timestamp: -1 });
 MongoAppLogSchema.index({ service: 1, timestamp: -1 });

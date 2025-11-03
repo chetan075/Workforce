@@ -11,7 +11,7 @@ import {
 import { AuthService } from './auth.service';
 import { Response, Request } from 'express';
 import { JwtAuthGuard } from './jwt.guard';
-import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsEnum } from 'class-validator';
 
 class RegisterDto {
   @IsEmail()
@@ -24,6 +24,10 @@ class RegisterDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  @IsOptional()
+  @IsEnum(['CLIENT', 'FREELANCER'])
+  role?: 'CLIENT' | 'FREELANCER';
 }
 
 class LoginDto {

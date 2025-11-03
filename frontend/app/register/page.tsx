@@ -47,7 +47,12 @@ export default function RegisterPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    console.log('🎯 Frontend Form - Input change:', { name, value, type: typeof value });
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value };
+      console.log('🎯 Frontend Form - Updated formData:', newData);
+      return newData;
+    });
     setError('');
   };
 
@@ -65,6 +70,9 @@ export default function RegisterPage() {
     e.preventDefault();
     setError('');
 
+    console.log('🎯 Frontend Form - Submit called with formData:', formData);
+    console.log('🎯 Frontend Form - Role specifically:', formData.role, 'Type:', typeof formData.role);
+
     if (!isFormValid()) {
       setError('Please fill in all fields and ensure password requirements are met.');
       return;
@@ -73,7 +81,14 @@ export default function RegisterPage() {
     setIsSubmitting(true);
 
     try {
-      const userData = await register(formData.email, formData.password, formData.name);
+      console.log('🎯 Frontend Form - Calling register with:', {
+        email: formData.email,
+        password: '[HIDDEN]',
+        name: formData.name,
+        role: formData.role
+      });
+      
+      const userData = await register(formData.email, formData.password, formData.name, formData.role);
       if (userData) {
         router.push('/dashboard');
       } else {

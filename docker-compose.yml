@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-chainbill}
+      POSTGRES_USER: ${DATABASE_USER:-chainbill_user}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-chainbill_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/Prisma/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-chainbill_user} -d ${DATABASE_NAME:-chainbill}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis Cache (optional for session management)
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ChainBill Application
+  chainbill-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DATABASE_URL: postgresql://${DATABASE_USER:-chainbill_user}:${DATABASE_PASSWORD:-chainbill_password}@postgres:5432/${DATABASE_NAME:-chainbill}
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      
+      # MongoDB Configuration
+      MONGODB_URI: ${MONGODB_URI}
+      
+      # JWT Configuration
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-7d}
+      
+      # Blockchain Configuration
+      APTOS_PRIVATE_KEY: ${APTOS_PRIVATE_KEY}
+      APTOS_CONTRACT_ADDRESS: ${APTOS_CONTRACT_ADDRESS:-0x04fa7024f8877de01aa137c92a5ea662e7544d44620fd53bd2b051d150d8c0d0}
+      APTOS_NETWORK: ${APTOS_NETWORK:-devnet}
+      
+      # Payment Configuration
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      
+      # AI Configuration
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      
+      # Application Configuration
+      NODE_ENV: production
+      PORT: 5000
+      FRONTEND_PORT: 3000
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      
+      # Redis Configuration
+      REDIS_URL: redis://redis:6379
+      
+    ports:
+      - "3000:3000"  # Frontend
+      - "5000:5000"  # Backend API
+    volumes:
+      - ./uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: chainbill-network

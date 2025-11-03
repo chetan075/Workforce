@@ -21,8 +21,8 @@ import { WorkOpportunitiesModule } from './work-opportunities/work-opportunities
 import { TasksModule } from './tasks/tasks.module';
 import { ProjectsModule } from './projects/projects.module';
 import { SkillsModule } from './skills/skills.module';
-// Temporarily disabled MongoDB module for simpler production deployment
-// import { MongoDBModule } from './mongodb/mongodb.module';
+// MongoDB module re-enabled for dual database functionality
+import { MongoDBModule } from './mongodb/mongodb.module';
 
 @Module({
   imports: [
@@ -46,8 +46,8 @@ import { SkillsModule } from './skills/skills.module';
     ProjectsModule,
     SkillsModule,
     CommonModule,
-    // Temporarily disabled MongoDB module for simpler production deployment
-    // MongoDBModule,
+    // MongoDB module re-enabled for dual database functionality
+    MongoDBModule,
   ],
   controllers: [AppController],
   providers: [AppService],

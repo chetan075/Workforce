@@ -4,6 +4,7 @@ import { AuthController } from './auth.controller';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaService } from 'src/common/Prisma.service';
 import { JwtAuthGuard } from './jwt.guard';
+import { MongoDBModule } from '../mongodb/mongodb.module';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { JwtAuthGuard } from './jwt.guard';
       secret: process.env.JWT_SECRET ?? 'dev',
       signOptions: { expiresIn: '1h' },
     }),
+    MongoDBModule,
   ],
   providers: [AuthService, PrismaService, JwtAuthGuard],
   controllers: [AuthController],
